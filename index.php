@@ -28,12 +28,9 @@ $app = new \Slim\App();
  * argument for `Slim::get`, `Slim::post`, `Slim::put`, `Slim::patch`, and `Slim::delete`
  * is an anonymous function.
  */
-$app->get('/hello/:first/:last', function ($req, $res) {
-    $first = $req->getAttribute('first');
-    $last = $req->getAttribute('last');
-
-    echo "Hello, $first $last";
-});
+$app->get('/hello/{first}/{last}', function ($req, $res, $args) {
+    echo $this['router']->urlFor('hello', ['first' => 'John', 'last' => 'Doe']);
+})->setName('hello');
 
 // GET route
 $app->get(

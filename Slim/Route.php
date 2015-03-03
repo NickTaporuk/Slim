@@ -34,8 +34,15 @@ use \Slim\Interfaces\RouteInterface;
  * to be confused with Slim application middleware) are useful for applying route
  * specific logic such as authentication.
  */
-class Route implements RouteInterface
+class Route
 {
+    /**
+     * HTTP methods supported by this route
+     *
+     * @var string
+     */
+    protected $method;
+
     /**
      * The route pattern (e.g. "/hello/:first/:name")
      *
@@ -51,53 +58,11 @@ class Route implements RouteInterface
     protected $callable;
 
     /**
-     * Conditions for this route's URL parameters
-     *
-     * @var array
-     */
-    protected $conditions = array();
-
-    /**
-     * Default conditions applied to all route instances
-     *
-     * @var array
-     */
-    protected static $defaultConditions = array();
-
-    /**
      * The name of this route (optional)
      *
      * @var null|string
      */
     protected $name;
-
-    /**
-     * Array of URL parameters
-     *
-     * @var array
-     */
-    protected $params = array();
-
-    /**
-     * Array of URL parameter names
-     *
-     * @var array
-     */
-    protected $paramNames = array();
-
-    /**
-     * Array of URL parameter names with + at the end
-     *
-     * @var array
-     */
-    protected $paramNamesPath = array();
-
-    /**
-     * HTTP methods supported by this route
-     *
-     * @var string[]
-     */
-    protected $methods = array();
 
     /**
      * Middleware to be invoked before immediately before this route is dispatched
@@ -111,64 +76,45 @@ class Route implements RouteInterface
      *
      * @param string   $pattern       The Route pattern
      * @param callable $callable      The Route callable
-     * @param bool     $caseSensitive Is the Route path case-sensitive?
      */
-    public function __construct($pattern, $callable, $caseSensitive = true)
+    public function __construct($method, $pattern, $callable)
     {
-        $this->setPattern($pattern);
+        $this->methods = $method;
+        $this->pattern = $pattern;
         $this->setCallable($callable);
-        $this->setConditions(self::getDefaultConditions());
-        $this->caseSensitive = $caseSensitive;
     }
 
     /**
-     * Set default Route conditions (applies to _all_ Route objects)
+     * Get name
      *
-     * @param array $defaultConditions
+     * @return  string|null
      */
-    public static function setDefaultConditions(array $defaultConditions)
+    public function getName()
     {
-        self::$defaultConditions = $defaultConditions;
+        return $this->name;
     }
 
     /**
-     * Get default route conditions
+     * Set name
      *
-     * @return array
+     * @param string $name Route name
      */
-    public static function getDefaultConditions()
+    public function setName($name)
     {
-        return self::$defaultConditions;
+        if (!is_string($name) && !method_exists($name, '__toString')) {
+            throw new \InvalidArgumentException('Route name must be a string');
+        }
+        $this->name = $name;
     }
 
     /**
-     * Get route pattern
+     * Get pattern
      *
-     * @return string
+     * @return  string
      */
     public function getPattern()
     {
         return $this->pattern;
-    }
-
-    /**
-     * Set route pattern
-     *
-     * @param string $pattern
-     */
-    public function setPattern($pattern)
-    {
-        $this->pattern = $pattern;
-    }
-
-    /**
-     * Get route callable
-     *
-     * @return callable
-     */
-    public function getCallable()
-    {
-        return $this->callable;
     }
 
     /**
@@ -186,12 +132,12 @@ class Route implements RouteInterface
             $callable = function() use ($class, $method) {
                 static $obj = null;
                 if ($obj === null) {
-                    if(!class_exists($class)) {
+                    if (!class_exists($class)) {
                         throw new \InvalidArgumentException('Route callable class does not exist');
                     }
                     $obj = new $class;
                 }
-                if(!method_exists($obj, $method)) {
+                if (!method_exists($obj, $method)) {
                     throw new \InvalidArgumentException('Route callable method does not exist');
                 }
                 return call_user_func_array(array($obj, $method), func_get_args());
@@ -203,163 +149,6 @@ class Route implements RouteInterface
         }
 
         $this->callable = $callable;
-    }
-
-    /**
-     * Get route conditions
-     *
-     * @return array
-     */
-    public function getConditions()
-    {
-        return $this->conditions;
-    }
-
-    /**
-     * Set route conditions
-     *
-     * @param array $conditions
-     */
-    public function setConditions(array $conditions)
-    {
-        $this->conditions = $conditions;
-    }
-
-    /**
-     * Get route name (this may be null if not set)
-     *
-     * @return string|null
-     */
-    public function getName()
-    {
-        return $this->name;
-    }
-
-    /**
-     * Set route name
-     *
-     * @param string $name
-     */
-    public function setName($name)
-    {
-        $this->name = (string)$name;
-    }
-
-    /**
-     * Get route parameters
-     *
-     * @return array
-     */
-    public function getParams()
-    {
-        return $this->params;
-    }
-
-    /**
-     * Set route parameters
-     *
-     * @param array $params
-     */
-    public function setParams(array $params)
-    {
-        $this->params = $params;
-    }
-
-    /**
-     * Get route parameter value
-     *
-     * @param  string                    $index Name of URL parameter
-     * @return string
-     * @throws \InvalidArgumentException        If route parameter does not exist at index
-     */
-    public function getParam($index)
-    {
-        if (!isset($this->params[$index])) {
-            throw new \InvalidArgumentException('Route parameter does not exist at specified index');
-        }
-
-        return $this->params[$index];
-    }
-
-    /**
-     * Set route parameter value
-     *
-     * @param  string                    $index Name of URL parameter
-     * @param  mixed                     $value The new parameter value
-     * @return void
-     * @throws \InvalidArgumentException If route parameter does not exist at index
-     */
-    public function setParam($index, $value)
-    {
-        if (!isset($this->params[$index])) {
-            throw new \InvalidArgumentException('Route parameter does not exist at specified index');
-        }
-        $this->params[$index] = $value;
-    }
-
-    /**
-     * Set supported HTTP methods
-     *
-     * @param array $methods
-     */
-    public function setHttpMethods(array $methods)
-    {
-        $this->methods = $methods;
-    }
-
-    /**
-     * Get supported HTTP methods
-     *
-     * @return array
-     */
-    public function getHttpMethods()
-    {
-        return $this->methods;
-    }
-
-    /**
-     * Append supported HTTP methods
-     *
-     * @param array $methods
-     */
-    public function appendHttpMethods(array $methods)
-    {
-        $this->methods = array_merge($this->methods, $methods);
-    }
-
-    /**
-     * Append supported HTTP methods
-     *
-     * @param  array $methods
-     * @return self
-     * @see    appendHttpMethods()
-     */
-    public function via(array $methods)
-    {
-        $this->appendHttpMethods($methods);
-
-        return $this;
-    }
-
-    /**
-     * Does this route answer for a given HTTP method?
-     *
-     * @param  string $method
-     * @return bool
-     */
-    public function supportsHttpMethod($method)
-    {
-        return in_array($method, $this->methods);
-    }
-
-    /**
-     * Get Route middleware
-     *
-     * @return callable[]
-     */
-    public function getMiddleware()
-    {
-        return $this->middleware;
     }
 
     /**
@@ -395,97 +184,6 @@ class Route implements RouteInterface
     }
 
     /**
-     * Does this Route's pattern match a given request Uri path?
-     *
-     * Parse this route's pattern, and then compare it to an HTTP resource URI
-     * This method was modeled after the techniques demonstrated by Dan Sosedoff at:
-     *
-     * @param  string $uriPath A Request Uri path
-     * @return bool
-     */
-    public function matches($uriPath)
-    {
-        // Convert URL params into regex patterns, construct a regex for this route, init params
-        $patternAsRegex = preg_replace_callback(
-            '#:([\w]+)\+?#',
-            array($this, 'matchesCallback'),
-            str_replace(')', ')?', (string)$this->pattern)
-        );
-        if (substr($this->pattern, -1) === '/') {
-            $patternAsRegex .= '?';
-        }
-
-        $regex = '#^' . $patternAsRegex . '$#';
-
-        if ($this->caseSensitive === false) {
-            $regex .= 'i';
-        }
-
-        //Cache URL params' names and values if this route matches the current HTTP request
-        if (!preg_match($regex, $uriPath, $paramValues)) {
-            return false;
-        }
-        foreach ($this->paramNames as $name) {
-            if (isset($paramValues[$name])) {
-                if (isset($this->paramNamesPath[$name])) {
-                    $this->params[$name] = explode('/', urldecode($paramValues[$name]));
-                } else {
-                    $this->params[$name] = urldecode($paramValues[$name]);
-                }
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * Convert a URL parameter (e.g., ":id" or ":id+") into a regular expression
-     *
-     * @param  array  $matches URL parameter match
-     * @return string          Regular expression string for URL parameter
-     */
-    protected function matchesCallback($m)
-    {
-        $this->paramNames[] = $m[1];
-        if (isset($this->conditions[$m[1]])) {
-            return '(?P<' . $m[1] . '>' . $this->conditions[$m[1]] . ')';
-        }
-        if (substr($m[0], -1) === '+') {
-            $this->paramNamesPath[$m[1]] = 1;
-
-            return '(?P<' . $m[1] . '>.+)';
-        }
-
-        return '(?P<' . $m[1] . '>[^/]+)';
-    }
-
-    /**
-     * Set route name
-     *
-     * @param  string $name The name of the route
-     * @return self
-     */
-    public function name($name)
-    {
-        $this->setName($name);
-
-        return $this;
-    }
-
-    /**
-     * Merge route conditions
-     *
-     * @param  array $conditions Key-value array of URL parameter conditions
-     * @return self
-     */
-    public function conditions(array $conditions)
-    {
-        $this->conditions = array_merge($this->conditions, $conditions);
-
-        return $this;
-    }
-
-    /**
      * Dispatch route callable against current Request and Response objects
      *
      * This method invokes the route object's callable. If middleware is
@@ -496,23 +194,20 @@ class Route implements RouteInterface
      * @param  ResponseInterface $response The current Response object
      * @return ResponseInterface
      */
-    public function dispatch(RequestInterface $request, ResponseInterface $response)
+    public function __invoke(RequestInterface $request, ResponseInterface $response, array $args)
     {
         // Invoke route middleware
         foreach ($this->middleware as $mw) {
-            $newResponse = call_user_func_array($mw, [$request, $response, $this]);
+            $newResponse = call_user_func_array($mw, [$request, $response, $args]);
             if ($newResponse instanceof ResponseInterface) {
                 $response = $newResponse;
             }
         }
 
-        // Inject route parameters into Request object as attributes
-        $request = $request->withAttributes($this->getParams());
-
         // Invoke route callable
         try {
             ob_start();
-            $newResponse = call_user_func_array($this->getCallable(), [$request, $response, $this]);
+            $newResponse = call_user_func_array($this->callable, [$request, $response, $args]);
             $output = ob_get_clean();
         } catch (\Exception $e) {
             ob_end_clean();

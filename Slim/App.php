@@ -234,73 +234,37 @@ class App extends \Pimple\Container
     *******************************************************************************/
 
     /**
-     * Add GET|POST|PUT|PATCH|DELETE route
+     * Define route
      *
-     * Adds a new route to the router with associated callable. This
-     * route will only be invoked when the HTTP request's method matches
-     * this route's method.
+     * @param  string   $method   HTTP method
+     * @param  string   $pattern  Route pattern
+     * @param  callable $callable Route callback routine
      *
-     * ARGUMENTS:
-     *
-     * First:       string  The URL pattern (REQUIRED)
-     * In-Between:  mixed   Anything that returns TRUE for `is_callable` (OPTIONAL)
-     * Last:        mixed   Anything that returns TRUE for `is_callable` (REQUIRED)
-     *
-     * The first argument is required and must always be the
-     * route pattern (ie. '/books/:id').
-     *
-     * The last argument is required and must always be the callable object
-     * to be invoked when the route matches an HTTP request.
-     *
-     * You may also provide an unlimited number of in-between arguments;
-     * each interior argument must be callable and will be invoked in the
-     * order specified before the route's callable is invoked.
-     *
-     * USAGE:
-     *
-     * Slim::get('/foo'[, middleware, middleware, ...], callable);
-     *
-     * @param  array $args Route path, optional middleware, and callback
-     * @return \Slim\Interfaces\RouteInterface
+     * @return \Slim\Route
      */
-    protected function mapRoute($args)
+    protected function mapRoute($method, $pattern, $callable)
     {
-        $pattern = array_shift($args);
-        $callable = array_pop($args);
         if ($callable instanceof \Closure) {
             $callable = $callable->bindTo($this);
         }
-        $route = new Route($pattern, $callable, $this['settings']['routes.case_sensitive']);
-        $this['router']->map($route);
-        if (count($args) > 0) {
-            $route->setMiddleware($args);
-        }
 
-        return $route;
-    }
-
-    /**
-     * Add route without HTTP method
-     *
-     * @return \Slim\Interfaces\RouteInterface
-     */
-    public function map()
-    {
-        $args = func_get_args();
-
-        return $this->mapRoute($args);
+        return $this['router']->addRoute($method, $pattern, $callable);
     }
 
     /**
      * Add GET route
      *
-     * @return \Slim\Interfaces\RouteInterface
+     * @return \Slim\Route
      */
     public function get()
     {
         $args = func_get_args();
+        $pattern = array_shift($args);
+        $callable = array_pop($args);
+        $route = $this->mapRoute('GET', $pattern, $callable);
+        $route->setMiddleware($args);
 
-        return $this->mapRoute($args)->via(['GET', 'HEAD']);
+        return $route;
     }
 
     /**
@@ -311,8 +275,12 @@ class App extends \Pimple\Container
     public function post()
     {
         $args = func_get_args();
+        $pattern = array_shift($args);
+        $callable = array_pop($args);
+        $route = $this->mapRoute('POST', $pattern, $callable);
+        $route->setMiddleware($args);
 
-        return $this->mapRoute($args)->via(['POST']);
+        return $route;
     }
 
     /**
@@ -323,8 +291,12 @@ class App extends \Pimple\Container
     public function put()
     {
         $args = func_get_args();
+        $pattern = array_shift($args);
+        $callable = array_pop($args);
+        $route = $this->mapRoute('PUT', $pattern, $callable);
+        $route->setMiddleware($args);
 
-        return $this->mapRoute($args)->via(['PUT']);
+        return $route;
     }
 
     /**
@@ -335,8 +307,12 @@ class App extends \Pimple\Container
     public function patch()
     {
         $args = func_get_args();
+        $pattern = array_shift($args);
+        $callable = array_pop($args);
+        $route = $this->mapRoute('PATCH', $pattern, $callable);
+        $route->setMiddleware($args);
 
-        return $this->mapRoute($args)->via(['PATCH']);
+        return $route;
     }
 
     /**
@@ -347,8 +323,12 @@ class App extends \Pimple\Container
     public function delete()
     {
         $args = func_get_args();
+        $pattern = array_shift($args);
+        $callable = array_pop($args);
+        $route = $this->mapRoute('DELETE', $pattern, $callable);
+        $route->setMiddleware($args);
 
-        return $this->mapRoute($args)->via(['DELETE']);
+        return $route;
     }
 
     /**
@@ -359,8 +339,12 @@ class App extends \Pimple\Container
     public function options()
     {
         $args = func_get_args();
+        $pattern = array_shift($args);
+        $callable = array_pop($args);
+        $route = $this->mapRoute('OPTIONS', $pattern, $callable);
+        $route->setMiddleware($args);
 
-        return $this->mapRoute($args)->via(['OPTIONS']);
+        return $route;
     }
 
     /**
@@ -383,18 +367,6 @@ class App extends \Pimple\Container
             call_user_func($callable);
         }
         $this['router']->popGroup();
-    }
-
-    /**
-     * Add route for any HTTP method
-     *
-     * @return \Slim\Interfaces\RouteInterface
-     */
-    public function any()
-    {
-        $args = func_get_args();
-
-        return $this->mapRoute($args)->via(['ANY']);
     }
 
     /********************************************************************************
@@ -593,7 +565,6 @@ class App extends \Pimple\Container
         $app = $this;
         $request = $this['request'];
         $response = $this['response'];
-        $this['router']->setBaseUrl($request->getUri()->getBasePath());
 
         // Set response HTTP caching callbacks to short-circuit app if necessary
         $response->onLastModified(function ($latestResponse, $time) use ($app, $request) {
@@ -635,32 +606,13 @@ class App extends \Pimple\Container
      *
      * @param  RequestInterface  $request  The most recent Request object
      * @param  ResponseInterface $response The most recent Response object
+     *
      * @return ResponseInterface
      */
     public function __invoke(RequestInterface $request, ResponseInterface $response)
     {
-        // TODO: Inject request and response objects into hooks?
-        try {
-            $this->applyHook('slim.before');
-            $dispatched = false;
-            $matchedRoutes = $this['router']->getMatchedRoutes($request->getMethod(), $request->getUri()->getPath(), false);
-            foreach ($matchedRoutes as $route) {
-                try {
-                    $this->applyHook('slim.before.dispatch');
-                    $newResponse = $route->dispatch($request, $response);
-                    $this->applyHook('slim.after.dispatch');
-                    $dispatched = true;
-                    break;
-                } catch (Exception\Pass $e) {
-                    continue;
-                }
-            }
-            if (!$dispatched) {
-                $newResponse = $this['notFoundHandler']($request, $response);
-            }
-        } catch (Exception\Stop $e) {
-            $newResponse = $e->getResponse();
-        }
+        $this->applyHook('slim.before');
+        $newResponse = $this['router']->dispatch($request, $response);
         $this->applyHook('slim.after');
 
         return $newResponse;
