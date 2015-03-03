@@ -22,11 +22,11 @@ use Psr\Http\Message\ResponseInterface;
 class Router implements Interfaces\RouterInterface
 {
     /**
-     * Rotue container
+     * Route strategy
      *
-     * @var \League\Container
+     * @var \Slim\RouteStrategy
      */
-    protected $routeContainer;
+    protected $routeStrategy;
 
     /**
      * Route collection
@@ -61,9 +61,9 @@ class Router implements Interfaces\RouterInterface
      */
     public function __construct()
     {
-        $this->routeContainer = new \League\Container\Container;
-        $this->routeCollection = new \League\Route\RouteCollection($this->routeContainer);
-        $this->routeCollection->setStrategy(new RouteStrategy);
+        $this->routeStrategy = new RouteStrategy;
+        $this->routeCollection = new \League\Route\RouteCollection();
+        $this->routeCollection->setStrategy($this->routeStrategy);
     }
 
     /**
@@ -106,12 +106,8 @@ class Router implements Interfaces\RouterInterface
      */
     public function dispatch(RequestInterface $request, ResponseInterface $response)
     {
-        $this->routeContainer->add('request', function () use ($request) {
-            return $request;
-        });
-        $this->routeContainer->add('response', function () use ($response) {
-            return $response;
-        });
+        $this->routeStrategy->setRequest($request);
+        $this->routeStrategy->setResponse($response);
 
         // TODO: Catch Not Found exception
         // TODO: Catch Not Allowed exception
