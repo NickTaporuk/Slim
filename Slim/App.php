@@ -40,19 +40,14 @@ class App extends \Pimple\Container
      *
      * @var array
      */
-    protected $hooks = array(
-        'slim.before' => array(array()),
-        'slim.before.dispatch' => array(array()),
-        'slim.after.dispatch' => array(array()),
-        'slim.after' => array(array())
-    );
+    protected $hooks = [];
 
     /**
      * Middleware stack
      *
      * @var callable[]
      */
-    protected $middleware;
+    protected $middleware = [];
 
     /********************************************************************************
     * Instantiation and Configuration
@@ -611,11 +606,7 @@ class App extends \Pimple\Container
      */
     public function __invoke(RequestInterface $request, ResponseInterface $response)
     {
-        $this->applyHook('slim.before');
-        $newResponse = $this['router']->dispatch($request, $response);
-        $this->applyHook('slim.after');
-
-        return $newResponse;
+        return $this['router']->dispatch($request, $response);
     }
 
     /**
